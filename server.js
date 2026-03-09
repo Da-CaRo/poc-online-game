@@ -1,3 +1,10 @@
+const express = require('express');
+const app = express();
+const http = require('http').Server(app);
+const io = require('socket.io')(http, { cors: { origin: "*" } });
+
+app.use(express.static('public'));
+
 let estadoJuego = {
     tablero: Array(9).fill(null),
     turnoActual: 'X', // Empieza la X
