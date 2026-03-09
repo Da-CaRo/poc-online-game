@@ -1,16 +1,82 @@
-const urlParams = new URLSearchParams(window.location.search);
-const miRol = urlParams.get('role'); // 'host' o 'player'
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>PoC Kahoot-Style</title>
+    <style>
+        body { font-family: sans-serif; text-align: center; background: #222; color: white; margin: 0; }
+        
+        /* Estilo para el Tablero (Host) */
+        .grid-host { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; max-width: 400px; margin: 20px auto; }
+        .celda-host { background: #444; height: 120px; display: flex; align-items: center; justify-content: center; font-size: 3em; border-radius: 10px; }
 
-const socket = io();
+        /* Estilo para el Mando (Jugador) */
+        .grid-mando { display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; padding: 20px; }
+        .boton-mando { background: #007bff; border: none; height: 80px; color: white; font-size: 1.5em; border-radius: 50%; cursor: pointer; touch-action: manipulation; }
+        .boton-mando:active { background: #0056b3; transform: scale(0.9); }
+        .boton-mando:disabled { background: #555; }
+        
+        .oculto { display: none; }
+    </style>
+</head>
+<body>
 
-if (miRol === 'host') {
-    socket.emit('registrar-host');
-    // Lógica para dibujar el tablero grande y bonito
-} else {
-    socket.emit('registrar-jugador');
-    // Lógica para mostrar botones simples
-}
+    <h1 id="titulo">Cargando...</h1>
 
-socket.on('actualizar-estado', (estado) => {
-    renderizar(estado); // Función que dibuja según el rol
-});
+    <!-- Vista del Tablero (Host) -->
+    <div id="vista-host" class="oculto">
+        <div class="grid-host" id="tablero-host"></div>
+    </div>
+
+    <!-- Vista del Mando (Jugador) -->
+    <div id="vista-jugador" class="oculto">
+        <div class="grid-mando" id="tablero-mando"></div>
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+        const socket = io();
+        const params = new URLSearchParams(window.location.search);
+        const rol = params.get('role'); // ?role=host o ?role=player
+
+        if (rol === 'host') {
+            document.getElementById('vista-host').classList.remove('oculto');
+            document.getElementById('titulo').innerText = "TABLERO PRINCIPAL";
+            socket.emit('registrar-host');
+        } else {
+            document.getElementById('vista-jugador').classList.remove('oculto');
+            document.getElementById('titulo').innerText = "TU MANDO";
+            socket.emit('registrar-jugador');
+        }
+
+        socket.on('actualizar-estado', (estado) => {
+            // Aquí dibujarías el tablero en el host o habilitarías botones en el mando
+            console.log("Nuevo estado recibido:", estado);
+            renderizar(estado);
+        });
+
+        function renderizar(estado) {
+            const container = (rol === 'host') ? 'tablero-host' : 'tablero-mando';
+            const el = document.getElementById(container);
+            el.innerHTML = '';
+
+            estado.tablero.forEach((valor, i) => {
+                if (rol === 'host') {
+                    const div = document.createElement('div');
+                    div.className = 'celda-host';
+                    div.innerText = valor || '';
+                    el.appendChild(div);
+                } else {
+                    const btn = document.createElement('button');
+                    btn.className = 'boton-mando';
+                    btn.innerText = i + 1;
+                    btn.disabled = (valor !== null || estado.turno !== 'X'); // Ejemplo simple de turno
+                    btn.onclick = () => socket.emit('intento-movimiento', i);
+                    el.appendChild(btn);
+                }
+            });
+        }
+    </script>
+</body>
+</html>
