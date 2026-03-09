@@ -1,173 +1,104 @@
 <!DOCTYPE html>
 <html lang="es">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>PoC Kahoot-Style</title>
+    <title>Multiplayer PoC</title>
     <style>
-        body {
-            font-family: sans-serif;
-            text-align: center;
-            background: #222;
-            color: white;
-            margin: 0;
-        }
+        :root { --bg: #1a1a1a; --primary: #00d1ff; --secondary: #ff006e; }
+        body { font-family: 'Segoe UI', sans-serif; background: var(--bg); color: white; margin: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; }
+        
+        #titulo { margin-bottom: 20px; text-transform: uppercase; letter-spacing: 2px; }
 
-        /* Estilo para el Tablero (Host) */
-        .grid-host {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 10px;
-            max-width: 400px;
-            margin: 20px auto;
-        }
+        /* Estilos del Tablero (Host) */
+        .grid-host { display: grid; grid-template-columns: repeat(3, 120px); gap: 15px; }
+        .celda-host { width: 120px; height: 120px; background: #333; display: flex; align-items: center; justify-content: center; font-size: 4rem; border-radius: 15px; box-shadow: 0 4px 10px rgba(0,0,0,0.3); transition: all 0.3s; }
+        .celda-host.X { color: var(--primary); text-shadow: 0 0 15px var(--primary); }
+        .celda-host.O { color: var(--secondary); text-shadow: 0 0 15px var(--secondary); }
 
-        .celda-host {
-            background: #444;
-            height: 120px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 3em;
-            border-radius: 10px;
-        }
+        /* Estilos del Mando (Player) */
+        .grid-mando { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; width: 90vw; max-width: 400px; }
+        .btn-mando { aspect-ratio: 1; border: none; background: #444; color: white; font-size: 2rem; border-radius: 50%; box-shadow: 0 6px 0 #222; transition: 0.1s; }
+        .btn-mando:active:not(:disabled) { transform: translateY(4px); box-shadow: 0 2px 0 #222; }
+        .btn-mando:disabled { opacity: 0.3; }
 
-        /* Estilo para el Mando (Jugador) */
-        .grid-mando {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 15px;
-            padding: 20px;
-        }
-
-        .boton-mando {
-            background: #007bff;
-            border: none;
-            height: 80px;
-            color: white;
-            font-size: 1.5em;
-            border-radius: 50%;
-            cursor: pointer;
-            touch-action: manipulation;
-        }
-
-        .boton-mando:active {
-            background: #0056b3;
-            transform: scale(0.9);
-        }
-
-        .boton-mando:disabled {
-            background: #555;
-        }
-
-        .oculto {
-            display: none;
-        }
+        .btn-reiniciar { margin-top: 30px; padding: 10px 25px; background: white; color: black; border: none; border-radius: 5px; cursor: pointer; font-weight: bold; }
+        .oculto { display: none; }
     </style>
 </head>
-
 <body>
 
-    <h1 id="titulo">Cargando...</h1>
+    <h1 id="titulo">Conectando...</h1>
 
-    <!-- Vista del Tablero (Host) -->
     <div id="vista-host" class="oculto">
         <div class="grid-host" id="tablero-host"></div>
+        <button class="btn-reiniciar" onclick="socket.emit('reiniciar')">Reiniciar Juego</button>
     </div>
 
-    <!-- Vista del Mando (Jugador) -->
-    <div id="vista-jugador" class="oculto">
+    <div id="vista-player" class="oculto">
         <div class="grid-mando" id="tablero-mando"></div>
-        <button onclick="enviarPrueba()" style="background:orange; padding:20px; width:100%">
-            PROBAR CONEXIÓN
-        </button>
-
-        <script>
-            function enviarPrueba() {
-                const miNombre = "Móvil-" + Math.floor(Math.random() * 100);
-                socket.emit('ping-test', { nombre: miNombre, color: 'lime' });
-            }
-
-            // El Host (Tablero) escucha esto
-            socket.on('pong-test', (data) => {
-                const log = document.createElement('p');
-                log.innerText = data.mensaje;
-                log.style.color = data.color;
-                document.body.appendChild(log); // Esto aparecerá en la pantalla del Host
-            });
-        </script>
     </div>
 
     <script src="/socket.io/socket.io.js"></script>
     <script>
         const socket = io();
-        const params = new URLSearchParams(window.location.search);
-        const rol = params.get('role'); // ?role=host o ?role=player
+        const urlParams = new URLSearchParams(window.location.search);
+        const rol = urlParams.get('role'); // 'host' o 'player'
+        let miFicha = null;
 
         if (rol === 'host') {
             document.getElementById('vista-host').classList.remove('oculto');
-            document.getElementById('titulo').innerText = "TABLERO PRINCIPAL";
             socket.emit('registrar-host');
         } else {
-            document.getElementById('vista-jugador').classList.remove('oculto');
-            document.getElementById('titulo').innerText = "TU MANDO";
+            document.getElementById('vista-player').classList.remove('oculto');
             socket.emit('registrar-jugador');
         }
 
-        let miFicha = null; // Se llenará con 'X' o 'O'
-
         socket.on('asignar-ficha', (ficha) => {
             miFicha = ficha;
-            document.getElementById('titulo').innerText = "Eres el jugador: " + ficha;
+            document.getElementById('titulo').innerText = "Eres: " + ficha;
         });
 
         socket.on('actualizar-estado', (estado) => {
-            const el = document.getElementById('tablero-mando'); // Si es mando
-            const info = document.getElementById('titulo');
-
-            // Si soy jugador, decirme si es mi turno
-            if (miFicha) {
-                if (estado.turnoActual === miFicha) {
-                    info.innerText = `¡Es TU turno (${miFicha})!`;
-                    info.style.color = "#00ff00";
-                } else {
-                    info.innerText = `Espera al oponente (${estado.turnoActual})...`;
-                    info.style.color = "white";
-                }
-            }
-
-            // Dibujar botones
-            renderizar(estado);
+            actualizarUI(estado);
         });
 
-        function renderizar(estado) {
-            const container = (rol === 'host') ? 'tablero-host' : 'tablero-mando';
-            const el = document.getElementById(container);
-            el.innerHTML = '';
+        function actualizarUI(estado) {
+            const titulo = document.getElementById('titulo');
+            
+            // Gestionar mensajes de estado
+            if (estado.ganador) {
+                titulo.innerText = estado.ganador === 'Empate' ? "¡EMPATE!" : `¡GANADOR: ${estado.ganador}!`;
+                titulo.style.color = "gold";
+            } else if (miFicha) {
+                titulo.innerText = (estado.turnoActual === miFicha) ? "TU TURNO" : `ESPERA A ${estado.turnoActual}`;
+                titulo.style.color = (estado.turnoActual === miFicha) ? "#00ff00" : "white";
+            } else if (rol === 'host') {
+                titulo.innerText = `TURNO DE: ${estado.turnoActual}`;
+            }
+
+            // Renderizar Tablero u Mando
+            const containerId = (rol === 'host') ? 'tablero-host' : 'tablero-mando';
+            const container = document.getElementById(containerId);
+            container.innerHTML = '';
 
             estado.tablero.forEach((valor, i) => {
                 if (rol === 'host') {
                     const div = document.createElement('div');
-                    div.className = 'celda-host';
+                    div.className = `celda-host ${valor || ''}`;
                     div.innerText = valor || '';
-                    el.appendChild(div);
+                    container.appendChild(div);
                 } else {
                     const btn = document.createElement('button');
-                    btn.className = 'boton-mando';
-                    btn.innerText = i + 1;
-                    btn.disabled = (valor !== null || estado.turno !== 'X'); // Ejemplo simple de turno
+                    btn.className = 'btn-mando';
+                    btn.innerText = valor || i + 1;
+                    // Solo habilitado si es mi turno, no hay ganador y la celda está vacía
+                    btn.disabled = (estado.turnoActual !== miFicha || valor !== null || estado.ganador);
                     btn.onclick = () => socket.emit('intento-movimiento', i);
-                    el.appendChild(btn);
+                    container.appendChild(btn);
                 }
             });
-            btn.onclick = () => {
-                if (miFicha === estado.turnoActual) {
-                    socket.emit('intento-movimiento', i);
-                }
-            };
         }
     </script>
 </body>
-
 </html>
