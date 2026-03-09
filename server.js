@@ -56,4 +56,13 @@ io.on('connection', (socket) => {
         if (socket.id === estadoJuego.jugadores.X) estadoJuego.jugadores.X = null;
         if (socket.id === estadoJuego.jugadores.O) estadoJuego.jugadores.O = null;
     });
+
+    
+});
+
+// Usar el puerto que asigne Render o el 3000 por defecto
+const PORT = process.env.PORT || 3000;
+
+http.listen(PORT, '0.0.0.0', () => {
+    console.log(`Servidor funcionando en el puerto ${PORT}`);
 });
