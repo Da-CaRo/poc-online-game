@@ -1,25 +1,72 @@
 <!DOCTYPE html>
 <html lang="es">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>PoC Kahoot-Style</title>
     <style>
-        body { font-family: sans-serif; text-align: center; background: #222; color: white; margin: 0; }
-        
+        body {
+            font-family: sans-serif;
+            text-align: center;
+            background: #222;
+            color: white;
+            margin: 0;
+        }
+
         /* Estilo para el Tablero (Host) */
-        .grid-host { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; max-width: 400px; margin: 20px auto; }
-        .celda-host { background: #444; height: 120px; display: flex; align-items: center; justify-content: center; font-size: 3em; border-radius: 10px; }
+        .grid-host {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+            max-width: 400px;
+            margin: 20px auto;
+        }
+
+        .celda-host {
+            background: #444;
+            height: 120px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 3em;
+            border-radius: 10px;
+        }
 
         /* Estilo para el Mando (Jugador) */
-        .grid-mando { display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; padding: 20px; }
-        .boton-mando { background: #007bff; border: none; height: 80px; color: white; font-size: 1.5em; border-radius: 50%; cursor: pointer; touch-action: manipulation; }
-        .boton-mando:active { background: #0056b3; transform: scale(0.9); }
-        .boton-mando:disabled { background: #555; }
-        
-        .oculto { display: none; }
+        .grid-mando {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 15px;
+            padding: 20px;
+        }
+
+        .boton-mando {
+            background: #007bff;
+            border: none;
+            height: 80px;
+            color: white;
+            font-size: 1.5em;
+            border-radius: 50%;
+            cursor: pointer;
+            touch-action: manipulation;
+        }
+
+        .boton-mando:active {
+            background: #0056b3;
+            transform: scale(0.9);
+        }
+
+        .boton-mando:disabled {
+            background: #555;
+        }
+
+        .oculto {
+            display: none;
+        }
     </style>
 </head>
+
 <body>
 
     <h1 id="titulo">Cargando...</h1>
@@ -32,6 +79,24 @@
     <!-- Vista del Mando (Jugador) -->
     <div id="vista-jugador" class="oculto">
         <div class="grid-mando" id="tablero-mando"></div>
+        <button onclick="enviarPrueba()" style="background:orange; padding:20px; width:100%">
+            PROBAR CONEXIÓN
+        </button>
+
+        <script>
+            function enviarPrueba() {
+                const miNombre = "Móvil-" + Math.floor(Math.random() * 100);
+                socket.emit('ping-test', { nombre: miNombre, color: 'lime' });
+            }
+
+            // El Host (Tablero) escucha esto
+            socket.on('pong-test', (data) => {
+                const log = document.createElement('p');
+                log.innerText = data.mensaje;
+                log.style.color = data.color;
+                document.body.appendChild(log); // Esto aparecerá en la pantalla del Host
+            });
+        </script>
     </div>
 
     <script src="/socket.io/socket.io.js"></script>
@@ -50,9 +115,29 @@
             socket.emit('registrar-jugador');
         }
 
+        let miFicha = null; // Se llenará con 'X' o 'O'
+
+        socket.on('asignar-ficha', (ficha) => {
+            miFicha = ficha;
+            document.getElementById('titulo').innerText = "Eres el jugador: " + ficha;
+        });
+
         socket.on('actualizar-estado', (estado) => {
-            // Aquí dibujarías el tablero en el host o habilitarías botones en el mando
-            console.log("Nuevo estado recibido:", estado);
+            const el = document.getElementById('tablero-mando'); // Si es mando
+            const info = document.getElementById('titulo');
+
+            // Si soy jugador, decirme si es mi turno
+            if (miFicha) {
+                if (estado.turnoActual === miFicha) {
+                    info.innerText = `¡Es TU turno (${miFicha})!`;
+                    info.style.color = "#00ff00";
+                } else {
+                    info.innerText = `Espera al oponente (${estado.turnoActual})...`;
+                    info.style.color = "white";
+                }
+            }
+
+            // Dibujar botones
             renderizar(estado);
         });
 
@@ -76,7 +161,13 @@
                     el.appendChild(btn);
                 }
             });
+            btn.onclick = () => {
+                if (miFicha === estado.turnoActual) {
+                    socket.emit('intento-movimiento', i);
+                }
+            };
         }
     </script>
 </body>
+
 </html>
