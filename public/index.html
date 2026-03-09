@@ -1,0 +1,16 @@
+const urlParams = new URLSearchParams(window.location.search);
+const miRol = urlParams.get('role'); // 'host' o 'player'
+
+const socket = io();
+
+if (miRol === 'host') {
+    socket.emit('registrar-host');
+    // Lógica para dibujar el tablero grande y bonito
+} else {
+    socket.emit('registrar-jugador');
+    // Lógica para mostrar botones simples
+}
+
+socket.on('actualizar-estado', (estado) => {
+    renderizar(estado); // Función que dibuja según el rol
+});
